@@ -110,8 +110,8 @@ fmapT ::
   (a -> b)
   -> t a
   -> t b
-fmapT =
-  error "todo: fmapT"
+fmapT f =
+  getIdentity . traverse (Identity . f)
 
 -- | Let's refactor out the call to @traverse@ as an argument to @fmapT@.
 over :: 
@@ -119,8 +119,8 @@ over ::
   -> (a -> b)
   -> s
   -> t
-over =
-  error "todo: over"
+over i f =
+  getIdentity . i (Identity . f)
 
 -- | Here is @fmapT@ again, passing @traverse@ to @over@.
 fmapTAgain ::
@@ -128,8 +128,8 @@ fmapTAgain ::
   (a -> b)
   -> t a
   -> t b
-fmapTAgain =
-  error "todo: fmapTAgain"
+fmapTAgain f =
+  over traverse f
 
 -- | Let's create a type-alias for this type of function.
 type Set s t a b =
@@ -142,22 +142,22 @@ type Set s t a b =
 sets ::
   ((a -> b) -> s -> t)
   -> Set s t a b  
-sets =
-  error "todo: sets"
+sets f aib =
+  Identity . f (getIdentity . aib)
 
 mapped ::
   Functor f =>
   Set (f a) (f b) a b
 mapped =
-  error "todo: mapped"
+  sets fmap
 
 set ::
   Set s t a b
   -> s
   -> b
   -> t
-set =
-  error "todo: set"
+set set' s b =
+  getIdentity $ set' (Identity . const b) s
 
 ----
 
@@ -169,8 +169,8 @@ foldMapT ::
   (a -> b)
   -> t a
   -> b
-foldMapT =
-  error "todo: foldMapT"
+foldMapT f =
+  getConst . traverse (Const . f)
 
 -- | Let's refactor out the call to @traverse@ as an argument to @foldMapT@.
 foldMapOf ::
@@ -178,8 +178,8 @@ foldMapOf ::
   -> (a -> r)
   -> s
   -> r
-foldMapOf =
-  error "todo: foldMapOf"
+foldMapOf i f =
+  getConst . i (Const . f)
 
 -- | Here is @foldMapT@ again, passing @traverse@ to @foldMapOf@.
 foldMapTAgain ::
@@ -188,7 +188,7 @@ foldMapTAgain ::
   -> t a
   -> b
 foldMapTAgain =
-  error "todo: foldMapTAgain"
+  foldMapOf traverse
 
 -- | Let's create a type-alias for this type of function.
 type Fold s t a b =
@@ -205,14 +205,14 @@ folds ::
   -> (a -> Const b a)
   -> s
   -> Const t s
-folds =
-  error "todo: folds"
+folds f ac =
+  Const . f (getConst . ac)
 
 folded ::
   Foldable f =>
   Fold (f a) (f a) a a
 folded =
-  error "todo: folded"
+  folds foldMap
 
 ----
 
@@ -226,8 +226,8 @@ get ::
   Get a s a
   -> s
   -> a
-get =
-  error "todo: get"
+get g =
+  getConst . g Const
 
 ----
 
@@ -242,20 +242,20 @@ type Traversal s t a b =
 -- | Traverse both sides of a pair.
 both ::
   Traversal (a, a) (b, b) a b
-both =
-  error "todo: both"
+both f (a1, a2) =
+  (,) <$> f a1 <*> f a2
 
 -- | Traverse the left side of @Either@.
 traverseLeft ::
   Traversal (Either a x) (Either b x) a b
-traverseLeft =
-  error "todo: traverseLeft"
+traverseLeft f e =
+  either (fmap Left . f) (pure . Right) e
 
 -- | Traverse the right side of @Either@.
 traverseRight ::
   Traversal (Either x a) (Either x b) a b
-traverseRight =
-  error "todo: traverseRight"
+traverseRight f e =
+  either (pure . Left) (fmap Right . f) e
 
 type Traversal' a b =
   Traversal a a b b
@@ -286,43 +286,43 @@ type Prism s t a b =
 _Left ::
   Prism (Either a x) (Either b x) a b
 _Left =
-  error "todo: _Left"
+  dimap id (either (fmap Left) (pure . Right)) . left
 
 _Right ::
-  Prism (Either x a) (Either x b) a b 
+  Prism (Either x a) (Either x b) a b
 _Right =
-  error "todo: _Right"
+  dimap id (either (pure . Left) (fmap Right)) . right
 
 prism ::
   (b -> t)
   -> (s -> Either t a)
   -> Prism s t a b
-prism =
-  error "todo: prism"
+prism bt sta =
+  dimap sta (either pure (fmap bt)) . right
 
 _Just ::
   Prism (Maybe a) (Maybe b) a b
 _Just =
-  error "todo: _Just"
+  prism Just (maybe (Left Nothing) Right)
 
 _Nothing ::
   Prism (Maybe a) (Maybe a) () ()
 _Nothing =
-  error "todo: _Nothing"
+  prism (const Nothing) (const $ Left Nothing)
 
 setP ::
   Prism s t a b
   -> s
   -> Either t a
-setP =
-  error "todo: setP"
+setP p =
+  either Right Left . p Left
 
 getP ::
   Prism s t a b
   -> b
   -> t
-getP =
-  error "todo: getP"
+getP p =
+  getIdentity . getTagged . p . Tagged . Identity
 
 type Prism' a b =
   Prism a a b b
@@ -345,8 +345,8 @@ modify ::
   -> (a -> b)
   -> s
   -> t
-modify =
-  error "todo: modify"
+modify l f =
+  getIdentity . l (Identity . f)
 
 -- | An alias for @modify@.
 (%~) ::
@@ -375,8 +375,8 @@ infixr 4 %~
   -> b
   -> s
   -> t
-(.~) =
-  error "todo: (.~)"
+(.~) l b =
+  modify l (const b)
 
 infixl 5 .~
 
@@ -396,8 +396,8 @@ fmodify ::
   -> (a -> f b)
   -> s
   -> f t 
-fmodify =
-  error "todo: fmodify"
+fmodify l =
+  l
 
 -- |
 --
@@ -412,8 +412,8 @@ fmodify =
   -> f b
   -> s
   -> f t
-(|=) =
-  error "todo: (|=)"
+(|=) l b =
+  l (const b)
 
 infixl 5 |=
 
@@ -423,8 +423,8 @@ infixl 5 |=
 -- (30,"abc")
 fstL ::
   Lens (a, x) (b, x) a b
-fstL =
-  error "todo: fstL"
+fstL ab (a, x) =
+  fmap (flip (,) x) (ab a)
 
 -- |
 --
@@ -432,8 +432,8 @@ fstL =
 -- (13,"abcdef")
 sndL ::
   Lens (x, a) (x, b) a b
-sndL =
-  error "todo: sndL"
+sndL ab (x, a) =
+  fmap ((,) x) (ab a)
 
 -- |
 --
@@ -498,8 +498,8 @@ compose ::
   Lens s t a b
   -> Lens q r s t
   -> Lens q r a b
-compose =
-  error "todo: compose"
+compose stab qrst ab =
+  qrst (stab ab)
 
 -- | An alias for @compose@.
 (|.) ::
@@ -520,8 +520,8 @@ infixr 9 |.
 -- 4
 identity ::
   Lens a b a b
-identity =
-  error "todo: identity"
+identity ab =
+  ab
 
 -- |
 --
@@ -535,7 +535,7 @@ product ::
   -> Lens q r c d
   -> Lens (s, q) (t, r) (a, c) (b, d)
 product =
-  error "todo: product"
+   error "todo: product"
 
 -- | An alias for @product@.
 (***) ::
